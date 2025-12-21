@@ -7,7 +7,7 @@ import Link from "next/link"; // 링크 이동을 위해 추가
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "나만의 블로그", // 브라우저 탭 이름 변경
+  title: "나만의 블로그 test", // 브라우저 탭 이름 변경
   description: "Next.js와 Supabase로 만든 블로그입니다.",
 };
 
