@@ -22,7 +22,7 @@ export default function RootLayout({
         {/* ▼▼▼ 여기서부터 추가된 부분 (상단 네비게이션) ▼▼▼ */}
         <nav className="border-b p-4 mb-4 flex gap-4">
           <Link href="/" className="font-bold text-xl">
-            My Blog
+            My Blog test
           </Link>
           <Link href="/create" className="text-blue-500 hover:underline">
             글쓰기
