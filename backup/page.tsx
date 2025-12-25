@@ -1,13 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabase';
 import { calculateReturns, getTableName } from '../utils/calculations';
-import { 
-  RefreshCw, TrendingUp, Trash2, History, PlusCircle, BarChart3, 
-  AlertTriangle, DollarSign, ChevronDown, ChevronRight, 
-  ArrowUp, ArrowDown, ArrowUpDown 
-} from 'lucide-react';
+import { RefreshCw, TrendingUp, Trash2, History, PlusCircle, BarChart3, AlertTriangle, DollarSign, ChevronDown, ChevronRight } from 'lucide-react';
 
 // --- 탭 UI (가로 스크롤 최적화) ---
 const Tabs = ({ active, setActive }: any) => {
@@ -52,15 +48,9 @@ export default function Home() {
   const [addBuys, setAddBuys] = useState<any[]>([]);
   const [sellHistory, setSellHistory] = useState<any[]>([]);
 
-  // 대시보드 내역 접기/펼치기 상태
+  // [추가] 대시보드 내역 접기/펼치기 상태
   const [isAddHistoryOpen, setAddHistoryOpen] = useState(false);
   const [isSellHistoryOpen, setSellHistoryOpen] = useState(false);
-
-  // [정렬 상태] 초기값: 추천일(rec_date) 기준 내림차순(desc)
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({
-    key: 'rec_date',
-    direction: 'desc'
-  });
 
   // ------------------------------------------
   // 데이터 로딩
@@ -98,9 +88,7 @@ export default function Home() {
             return { ...stock, roiLump: 0, roiDca: 0, roiComp: 0, currentPrice: 0 };
           }
         }));
-        
-        // 데이터 저장 (정렬은 useMemo에서 처리)
-        setDashboardData(calculatedResults);
+        setDashboardData(calculatedResults.sort((a, b) => a.rec_date.localeCompare(b.rec_date)));
       } else {
         setDashboardData([]);
       }
@@ -112,50 +100,6 @@ export default function Home() {
   };
 
   useEffect(() => { fetchData(); }, []);
-
-  // ------------------------------------------
-  // 정렬 핸들러
-  // ------------------------------------------
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'desc'; // 기본 클릭 시 내림차순
-    
-    // 이미 같은 키로 정렬 중이고 내림차순이면 -> 오름차순으로 변경
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
-      direction = 'asc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  // 정렬된 데이터 계산
-  const sortedDashboardData = useMemo(() => {
-    if (!sortConfig) return dashboardData;
-
-    return [...dashboardData].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
-
-      // 숫자 비교
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      
-      // 문자열 비교
-      const aString = String(aValue || '').toLowerCase();
-      const bString = String(bValue || '').toLowerCase();
-      
-      if (aString < bString) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aString > bString) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [dashboardData, sortConfig]);
-
-  // 헤더 아이콘 렌더링 헬퍼
-  const getSortIcon = (key: string) => {
-    if (sortConfig?.key !== key) return <ArrowUpDown size={14} className="text-gray-600 ml-1 opacity-50" />;
-    return sortConfig.direction === 'asc' 
-      ? <ArrowUp size={14} className="text-blue-400 ml-1" /> 
-      : <ArrowDown size={14} className="text-red-400 ml-1" />;
-  };
 
   // ------------------------------------------
   // 매도 처리
@@ -205,32 +149,10 @@ export default function Home() {
     }
   };
 
-  // ------------------------------------------
-  // 스타일 헬퍼
-  // ------------------------------------------
-  const getReturnCellStyle = (val: number | undefined | null) => {
-    // 0%이거나 값이 없으면 투명
-    if (!val || val === 0) return {};
-    
-    const absVal = Math.abs(val);
-    // 투명도: 0.15 + (1%당 0.02) -> 최대 0.95
-    const opacity = Math.min(0.15 + (absVal * 0.02), 0.95);
-
-    // 양수: 빨강, 음수: 파랑
-    const color = val > 0 
-      ? `rgba(220, 38, 38, ${opacity})` 
-      : `rgba(37, 99, 235, ${opacity})`;
-
-    return {
-      backgroundColor: color,
-      color: 'white', 
-    };
-  };
-
-  const formatPctSimple = (val: number) => {
-    if (val === undefined || val === null) return '-';
-    if (val === 0) return <span className="text-gray-500">0.00%</span>;
-    return `${val.toFixed(2)}%`;
+  const formatPct = (val: number) => {
+    if (val === undefined || val === null) return <span className="text-gray-600">-</span>;
+    const color = val > 0 ? 'text-red-400' : val < 0 ? 'text-blue-400' : 'text-gray-500';
+    return <span className={`font-bold ${color}`}>{val.toFixed(2)}%</span>;
   };
 
   return (
@@ -258,56 +180,31 @@ export default function Home() {
                 <table className="w-full text-sm text-left whitespace-nowrap">
                   <thead className="text-xs text-gray-400 uppercase bg-gray-800">
                     <tr>
-                      <th 
-                        onClick={() => handleSort('name')} 
-                        className="sticky left-0 z-20 bg-gray-800 px-4 py-2 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] cursor-pointer hover:bg-gray-700 transition"
-                      >
-                        <div className="flex items-center justify-between">종목명 {getSortIcon('name')}</div>
-                      </th>
-                      <th onClick={() => handleSort('currentPrice')} className="px-4 py-2 text-right cursor-pointer hover:bg-gray-700 transition">
-                        <div className="flex items-center justify-end gap-1">현재가 {getSortIcon('currentPrice')}</div>
-                      </th>
-                      <th onClick={() => handleSort('roiLump')} className="px-4 py-2 text-right cursor-pointer hover:bg-gray-700 transition">
-                        <div className="flex items-center justify-end gap-1">수익률(거치) {getSortIcon('roiLump')}</div>
-                      </th>
-                      <th onClick={() => handleSort('roiDca')} className="px-4 py-2 text-right cursor-pointer hover:bg-gray-700 transition">
-                         <div className="flex items-center justify-end gap-1">수익률(적립) {getSortIcon('roiDca')}</div>
-                      </th>
-                      <th onClick={() => handleSort('roiComp')} className="px-4 py-2 text-right cursor-pointer hover:bg-gray-700 transition">
-                         <div className="flex items-center justify-end gap-1">수익률(복합) {getSortIcon('roiComp')}</div>
-                      </th>
-                      <th onClick={() => handleSort('rec_date')} className="px-4 py-2 text-center cursor-pointer hover:bg-gray-700 transition">
-                         <div className="flex items-center justify-center gap-1">추천일 {getSortIcon('rec_date')}</div>
-                      </th>
-                      <th onClick={() => handleSort('recommender')} className="px-4 py-2 text-center cursor-pointer hover:bg-gray-700 transition">
-                         <div className="flex items-center justify-center gap-1">추천인 {getSortIcon('recommender')}</div>
-                      </th>
+                      <th className="sticky left-0 z-20 bg-gray-800 px-4 py-3 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
+                      <th className="px-4 py-3 text-right">현재가</th>
+                      <th className="px-4 py-3 text-right">수익률(복합)</th>
+                      <th className="px-4 py-3 text-right text-gray-500">수익률(거치)</th>
+                      <th className="px-4 py-3 text-right text-gray-500">수익률(적립)</th>
+                      <th className="px-4 py-3 text-center">추천일</th>
+                      <th className="px-4 py-3 text-center">추천인</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
-                    {sortedDashboardData.length === 0 ? (
+                    {dashboardData.length === 0 ? (
                       <tr><td colSpan={7} className="text-center py-12 text-gray-500">데이터가 없습니다.</td></tr>
                     ) : (
-                      sortedDashboardData.map((row) => (
+                      dashboardData.map((row) => (
                         <tr key={row.id} className="bg-gray-900 hover:bg-gray-800 transition">
-                          <td className="sticky left-0 z-10 bg-gray-900 px-4 py-2 border-r border-gray-800 font-bold text-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                          <td className="sticky left-0 z-10 bg-gray-900 px-4 py-3 border-r border-gray-800 font-bold text-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                             {row.name}
                             <span className="block text-[10px] font-normal text-gray-500">{row.code}</span>
                           </td>
-                          <td className="px-4 py-2 text-right font-mono text-gray-300">{row.currentPrice?.toLocaleString()}</td>
-                          
-                          <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(row.roiLump)}>
-                            {formatPctSimple(row.roiLump)}
-                          </td>
-                          <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(row.roiDca)}>
-                            {formatPctSimple(row.roiDca)}
-                          </td>
-                          <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(row.roiComp)}>
-                            {formatPctSimple(row.roiComp)}
-                          </td>
-
-                          <td className="px-4 py-2 text-center font-mono text-xs text-gray-500">{row.rec_date}</td>
-                          <td className="px-4 py-2 text-center text-xs text-gray-500">{row.recommender}</td>
+                          <td className="px-4 py-3 text-right font-mono text-gray-300">{row.currentPrice?.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right text-base">{formatPct(row.roiComp)}</td>
+                          <td className="px-4 py-3 text-right text-gray-400">{formatPct(row.roiLump)}</td>
+                          <td className="px-4 py-3 text-right text-gray-400">{formatPct(row.roiDca)}</td>
+                          <td className="px-4 py-3 text-center font-mono text-xs text-gray-500">{row.rec_date}</td>
+                          <td className="px-4 py-3 text-center text-xs text-gray-500">{row.recommender}</td>
                         </tr>
                       ))
                     )}
@@ -336,9 +233,9 @@ export default function Home() {
                     <table className="w-full text-sm text-left whitespace-nowrap">
                       <thead className="text-xs text-gray-400 uppercase bg-gray-800/50 sticky top-0 z-30">
                         <tr>
-                          <th className="sticky left-0 z-20 bg-gray-800 px-4 py-2 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
-                          <th className="px-4 py-2">매수일</th>
-                          <th className="px-4 py-2 text-right">비중(%)</th>
+                          <th className="sticky left-0 z-20 bg-gray-800 px-4 py-3 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
+                          <th className="px-4 py-3">매수일</th>
+                          <th className="px-4 py-3 text-right">비중(%)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
@@ -349,12 +246,12 @@ export default function Home() {
                              const stockName = portfolio.find(p => p.code === item.code)?.name || item.code;
                              return (
                               <tr key={idx} className="bg-gray-900 hover:bg-gray-800 transition">
-                                <td className="sticky left-0 z-10 bg-gray-900 px-4 py-2 border-r border-gray-800 font-bold text-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                                <td className="sticky left-0 z-10 bg-gray-900 px-4 py-3 border-r border-gray-800 font-bold text-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                                   {stockName}
                                   {stockName !== item.code && <span className="block text-[10px] font-normal text-gray-500">{item.code}</span>}
                                 </td>
-                                <td className="px-4 py-2 font-mono text-gray-400">{item.date}</td>
-                                <td className="px-4 py-2 text-right font-bold text-green-400">+{item.ratio * 100}%</td>
+                                <td className="px-4 py-3 font-mono text-gray-400">{item.date}</td>
+                                <td className="px-4 py-3 text-right font-bold text-green-400">+{item.ratio * 100}%</td>
                               </tr>
                              );
                           })
@@ -386,10 +283,10 @@ export default function Home() {
                     <table className="w-full text-sm text-left whitespace-nowrap">
                       <thead className="text-xs text-gray-400 uppercase bg-gray-800/50 sticky top-0 z-30">
                         <tr>
-                          <th className="sticky left-0 z-20 bg-gray-800 px-4 py-2 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
-                          <th className="px-4 py-2">매도일</th>
-                          <th className="px-4 py-2 text-right">최종 수익률</th>
-                          <th className="px-4 py-2 text-right">평가금액</th>
+                          <th className="sticky left-0 z-20 bg-gray-800 px-4 py-3 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
+                          <th className="px-4 py-3">매도일</th>
+                          <th className="px-4 py-3 text-right">최종 수익률</th>
+                          <th className="px-4 py-3 text-right">평가금액</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
@@ -398,14 +295,12 @@ export default function Home() {
                         ) : (
                           sellHistory.map((h: any) => (
                             <tr key={h.id} className="bg-gray-900 hover:bg-gray-800 transition">
-                              <td className="sticky left-0 z-10 bg-gray-900 px-4 py-2 border-r border-gray-800 font-bold text-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                              <td className="sticky left-0 z-10 bg-gray-900 px-4 py-3 border-r border-gray-800 font-bold text-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                                 {h.name}
                               </td>
-                              <td className="px-4 py-2 font-mono text-gray-400">{h.sell_date}</td>
-                              <td className="px-4 py-2 text-right" style={getReturnCellStyle(h.return_comp)}>
-                                {formatPctSimple(h.return_comp)}
-                              </td>
-                              <td className="px-4 py-2 text-right font-mono text-gray-400">{h.final_eval?.toLocaleString()}</td>
+                              <td className="px-4 py-3 font-mono text-gray-400">{h.sell_date}</td>
+                              <td className="px-4 py-3 text-right">{formatPct(h.return_comp)}</td>
+                              <td className="px-4 py-3 text-right font-mono text-gray-400">{h.final_eval?.toLocaleString()}</td>
                             </tr>
                           ))
                         )}
@@ -413,9 +308,9 @@ export default function Home() {
                     </table>
                   </div>
                   <div className="p-3 text-center border-t border-gray-800 bg-gray-900">
-                      <button onClick={() => setActiveTab("매도 이력")} className="text-xs text-blue-400 hover:underline">
+                     <button onClick={() => setActiveTab("매도 이력")} className="text-xs text-blue-400 hover:underline">
                         전체 상세 내역 보기 →
-                      </button>
+                     </button>
                   </div>
                 </div>
               )}
@@ -452,12 +347,12 @@ export default function Home() {
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="text-xs text-gray-400 uppercase bg-gray-800">
                   <tr>
-                    <th className="sticky left-0 z-20 bg-gray-800 px-4 py-2 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
-                    <th className="px-4 py-2">매도일</th>
-                    <th className="px-4 py-2 text-right">수익률(거치)</th>
-                    <th className="px-4 py-2 text-right">수익률(적립)</th>
-                    <th className="px-4 py-2 text-right">수익률(복합)</th>
-                    <th className="px-4 py-2 text-right">최종평가액</th>
+                    <th className="sticky left-0 z-20 bg-gray-800 px-4 py-3 border-r border-gray-700 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">종목명</th>
+                    <th className="px-4 py-3">매도일</th>
+                    <th className="px-4 py-3 text-right">수익률(복합)</th>
+                    <th className="px-4 py-3 text-right">수익률(거치)</th>
+                    <th className="px-4 py-3 text-right">수익률(적립)</th>
+                    <th className="px-4 py-3 text-right">최종평가액</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
@@ -466,22 +361,14 @@ export default function Home() {
                   ) : (
                     sellHistory.map((h: any) => (
                       <tr key={h.id} className="bg-gray-900 hover:bg-gray-800 transition">
-                         <td className="sticky left-0 z-10 bg-gray-900 px-4 py-2 border-r border-gray-800 font-bold text-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
+                         <td className="sticky left-0 z-10 bg-gray-900 px-4 py-3 border-r border-gray-800 font-bold text-gray-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                             {h.name}
                         </td>
-                        <td className="px-4 py-2 font-mono text-xs text-gray-500">{h.sell_date}</td>
-                        
-                        <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(h.return_lump)}>
-                          {formatPctSimple(h.return_lump)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(h.return_dca)}>
-                          {formatPctSimple(h.return_dca)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-bold transition-colors duration-300" style={getReturnCellStyle(h.return_comp)}>
-                          {formatPctSimple(h.return_comp)}
-                        </td>
-
-                        <td className="px-4 py-2 text-right font-mono text-gray-300">{h.final_eval?.toLocaleString()}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-500">{h.sell_date}</td>
+                        <td className="px-4 py-3 text-right font-bold">{formatPct(h.return_comp)}</td>
+                        <td className="px-4 py-3 text-right text-gray-400">{formatPct(h.return_lump)}</td>
+                        <td className="px-4 py-3 text-right text-gray-400">{formatPct(h.return_dca)}</td>
+                        <td className="px-4 py-3 text-right font-mono text-gray-300">{h.final_eval?.toLocaleString()}</td>
                       </tr>
                     ))
                   )}
